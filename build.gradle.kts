@@ -11,6 +11,8 @@ repositories {
 
 dependencies {
   testImplementation(kotlin("test"))
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+  implementation("io.ktor:ktor-network:3.4.3")
 }
 
 kotlin {
