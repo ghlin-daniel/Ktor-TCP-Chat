@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
 
 
 data class Client(
@@ -19,10 +18,8 @@ data class Client(
 private const val host: String = "localhost"
 private const val port: Int = 8080
 
-private val clients = ConcurrentHashMap<Int, Client>()
+private val clients = HashMap<Socket, Client>()
 
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 fun main() {
   runBlocking {
     val selectorManager = SelectorManager(Dispatchers.IO)
@@ -45,7 +42,7 @@ private suspend fun onNewConnection(socket: Socket) {
   val name = receiveChannel.readLine() ?: return
   sendChannel.writeStringUtf8("Server: Hi, $name\n")
   val client = Client(name, receiveChannel, sendChannel)
-  clients[client.hashCode()] = client
+  clients[socket] = client
 
   try {
     while (true) {
@@ -55,18 +52,16 @@ private suspend fun onNewConnection(socket: Socket) {
     }
   } catch (e: Throwable) {
     println("Server: Error ${e.message}")
-    withContext(Dispatchers.IO) {
-      socket.close()
-      println("Server: ${client.name} left")
-      clients.remove(client.hashCode())
-    }
+    clients.remove(socket)
+    withContext(Dispatchers.IO) { socket.close() }
+    println("Server: ${client.name} left")
   }
 }
 
 private suspend fun broadcast(sender: Client, message: String) {
   println("Broadcasting $message")
-  clients.forEach { (clientKey, client) ->
-    if (clientKey != sender.hashCode()) {
+  clients.values.toList().forEach { client ->
+    if (client != sender) {
       client.writeChannel.writeString("${sender.name}: $message\n")
       println("Sent $message to ${client.name}")
     }
